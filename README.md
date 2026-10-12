@@ -128,7 +128,9 @@ Settings are saved and shared by every session on your machine.
 
 ## Model routing
 
-Deck works on its own, and it's better with **[jev-model-router](https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/mods/productivity/jev-model-router)** by Daniel Ávila (MIT, part of claude-code-templates). The router uses Jev, TypeSafe's decision model, to pick each subagent's model and each prompt's reasoning effort. Deck shows what it decided.
+**The router is optional.** Deck works great on its own without it. If you never want to use the router, you don't need to set it up; Deck's route row simply won't appear. If you do want to try the router, it's already built into Deck and just needs to be enabled.
+
+Deck is better with **[jev-model-router](https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/mods/productivity/jev-model-router)** by Daniel Ávila (MIT, part of claude-code-templates). The router uses Jev, TypeSafe's decision model, to pick each subagent's model and each prompt's reasoning effort. Deck shows what it decided.
 
 | Where | What Deck shows |
 |---|---|
@@ -168,11 +170,22 @@ An update pulled at startup takes effect from the next session. Auto-updating ru
 
 With no key, the router uses Claude Code's built-in classifier and nothing leaves your machine. For a calibrated confidence, add a TypeSafe key in `~/.claude/settings.json`. The entry's name depends on how the router is loaded: `jev-model-router@skills-dir` for the `npx` install, `jev-model-router@inline` for a folder in `CLAUDE_CODE_PLUGIN_DIRS`.
 
+**How to get a TypeSafe API key:**
+
+1. Go to https://www.typesafe.dev
+2. Sign up for a free account or log in
+3. In your account settings, find the API key section
+4. Copy your API key
+
+Then add it to `~/.claude/settings.json`:
+
 ```json
 "pluginConfigs": {
   "jev-model-router@inline": { "options": { "provider": "typesafe", "typesafeApiKey": "YOUR_KEY" } }
 }
 ```
+
+Replace `YOUR_KEY` with the key you copied from TypeSafe.
 
 With a key, prompt text goes to TypeSafe. Run `/deck quiet off` and look for `ready on typesafe` to confirm the key was picked up.
 
