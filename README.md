@@ -128,9 +128,9 @@ Settings are saved and shared by every session on your machine.
 
 ## Model routing
 
-**The router is optional.** Deck works great on its own without it. If you never want to use the router, you don't need to set it up; Deck's route row simply won't appear. If you do want to try the router, it's already built into Deck and just needs to be enabled.
+**The router is optional.** Deck works fully without it. If you never set it up, the route row just doesn't appear. If you do use it, Deck picks it up with no extra setup and shows every decision it makes.
 
-Deck is better with **[jev-model-router](https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/mods/productivity/jev-model-router)** by Daniel Ávila (MIT, part of claude-code-templates). The router uses Jev, TypeSafe's decision model, to pick each subagent's model and each prompt's reasoning effort. Deck shows what it decided.
+Deck pairs with **[jev-model-router](https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/mods/productivity/jev-model-router)** by Daniel Ávila (MIT, part of claude-code-templates). The router uses Jev, TypeSafe's decision model, to pick each subagent's model and each prompt's reasoning effort. Deck shows what it decided.
 
 | Where | What Deck shows |
 |---|---|
@@ -170,14 +170,7 @@ An update pulled at startup takes effect from the next session. Auto-updating ru
 
 With no key, the router uses Claude Code's built-in classifier and nothing leaves your machine. For a calibrated confidence, add a TypeSafe key in `~/.claude/settings.json`. The entry's name depends on how the router is loaded: `jev-model-router@skills-dir` for the `npx` install, `jev-model-router@inline` for a folder in `CLAUDE_CODE_PLUGIN_DIRS`.
 
-**How to get a TypeSafe API key:**
-
-1. Go to https://www.typesafe.dev
-2. Sign up for a free account or log in
-3. In your account settings, find the API key section
-4. Copy your API key
-
-Then add it to `~/.claude/settings.json`:
+To get a key, sign up at [typesafe.ai](https://typesafe.ai) and create an API key there. Then add it to `~/.claude/settings.json`:
 
 ```json
 "pluginConfigs": {
@@ -200,6 +193,8 @@ This is off by default because switching models throws away the prompt cache, an
 See the [router's README](https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/mods/productivity/jev-model-router) for other options.
 
 If the router gets no answer (out of credit, a bad key, or slower than its 800 ms limit), it leaves the model as it is, and the route row says so in amber, e.g. `kept opus · ! typesafe 402`. After three misses in a row it adds a hint to check the key or credit.
+
+**Turning the router off.** To only hide it in Deck, run `/deck route off` (the router keeps routing). To stop the router itself, remove the line that loads it: the `CLAUDE_CODE_PLUGIN_DIRS` entry in `~/.claude/settings.json` for the always-on setup, or the router's folder in the project for the `npx` install. Then restart Claude Code. The `SessionStart` pull hook and the `pluginConfigs` entry can stay, they do nothing on their own. Remember that `settings.json` is plain JSON, so delete lines rather than commenting them out with `//`.
 
 ## Updating
 
