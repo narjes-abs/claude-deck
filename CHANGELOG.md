@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.11
+
+- Background subagents stay on Deck while they run. The activity row no longer hides them 20 seconds after the turn ends, and on your next prompt they move to the Agents bar instead of disappearing, so you still see them finish. Fixes [#3](https://github.com/nvr0x5/claude-deck/issues/3), thanks @damiansycz.
+- Narrow terminals (under 40 columns, like a side-by-side pane) no longer wrap. Deck uses the real width, drops the weather and then the clock when the header doesn't fit, and keeps each row on one line, cut short. Fixes [#4](https://github.com/nvr0x5/claude-deck/issues/4), thanks @MAXxATTAXx.
+
 ## 0.4.10
 
 - Fixed: when a mod after Deck in the hook chain wanted to draw, Deck swallowed it instead of stacking the result underneath. Now `deckView` calls `next(e)` first and stacks whatever comes back. Fixes [#2](https://github.com/nvr0x5/claude-deck/issues/2) thanks to @MAXxATTAXx.

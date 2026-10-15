@@ -34,8 +34,9 @@ const FOLD_MS = 5000
 const MAX_STRIPS = 4
 const ASK_DELAY_MS = 600
 const TRACK_H = 22
-const VERSION = '0.4.10' // keep in step with .claude-plugin/plugin.json (a test checks)
+const VERSION = '0.4.11' // keep in step with .claude-plugin/plugin.json (a test checks)
 const RIGHT_W = 92
+const HEADER_CH = 20 // the terminal header's toggle and row count, with their gaps
 const TITLE_MAX_CH = 22 // a long prompt as a bar title would squeeze every track
 const TITLE_MAX_PX = 160
 const PET_COLS = 12
@@ -110,7 +111,9 @@ function actionOf(e) {
 
 function activityRow(now) {
   if (!activity || !prefs.show.plans) return null
-  if (activity.done && now - activity.doneAt > ACTIVITY_LINGER_MS) return null
+  // a background agent outlives the turn that started it: keep its row until it finishes
+  const busyAgents = [...agents.values()].some((a) => a.home === 'activity' && (a.state === 'running' || a.state === 'waiting'))
+  if (activity.done && now - activity.doneAt > ACTIVITY_LINGER_MS && !busyAgents) return null
   // a plain chat turn: worth a row while it thinks, not once it has answered
   if (activity.done && activity.tools === 0 && ![...agents.values()].some((a) => a.home === 'activity')) return null
   const planned = [...bars.values()].some((b) => b.id !== 'agents' && !b.dismissed && b.startedAt >= activity.start - 1000)
@@ -394,6 +397,22 @@ function syncAgentsBar() {
   const rank = (a) => (a.state === 'done' ? 0 : a.state === 'error' ? 1 : 2)
   const list = agentsOf(bar).sort((a, b) => rank(a) - rank(b))
   bar.stages = [{ name: 'Agents', steps: list.map((a) => ({ title: a.title, status: a.state === 'done' ? 'done' : a.state === 'error' ? 'error' : 'active' })) }]
+}
+
+// a new turn replaces the activity row; its background agents still running move to the Agents bar
+// (https://github.com/nvr0x5/claude-deck/issues/3)
+function adoptRunningAgents() {
+  const running = [...agents.values()].filter((a) => a.home === 'activity' && (a.state === 'running' || a.state === 'waiting'))
+  if (!running.length) return
+  if (!bars.has('agents') || barState(bars.get('agents')) === 'done') {
+    for (const a of [...agents.values()]) if (a.home === 'agents') agents.delete(a.id)
+    placeBar(newBar('agents', 'Agents', 'agents', []))
+  }
+  const bar = bars.get('agents')
+  bar.agentsDoneAt = null
+  bar.dismissed = false
+  for (const a of running) a.home = 'agents'
+  syncAgentsBar()
 }
 
 // moves the demo bar one step
@@ -1174,12 +1193,16 @@ async function deckView($, e, next) {
   // there, plain text takes the theme's foreground and grey text uses dimColor instead
   const tone = (c) => (!desktop ? { color: c } : c === TEXT || c === '#c9c7c1' ? {} : c === MUTED || c === DIM || c === TRACK ? { dimColor: true } : { color: c })
   const nowMs = Date.now()
-  const cols = Math.max(40, e.props.bodyColumns ?? e.viewport?.columns ?? 100)
+  // the real width, even a narrow side-by-side pane: a floor wider than the band wraps every row
+  // (https://github.com/nvr0x5/claude-deck/issues/4)
+  const cols = Math.max(desktop ? 40 : 20, e.props.bodyColumns ?? e.viewport?.columns ?? 100)
   const rows = collectRows(nowMs)
   const extras = []
   if (prefs.show.clock) extras.push((desktop ? '◷ ' : '') + clockText())
   const wt = prefs.show.weather ? weatherText(desktop) : ''
   if (wt) extras.push(wt)
+  // a narrow terminal drops the weather, then the clock, before the header line would wrap
+  if (!desktop) while (extras.length && HEADER_CH + extras.join('  ·  ').length > cols) extras.pop()
   if (!rows.length && !extras.length && !prefs.show.pet) return next(e)
   // a mod after deck in the hook chain also wants to draw AbovePrompt; stack its band under ours
   // instead of swallowing it (https://github.com/nvr0x5/claude-deck/issues/2)
@@ -1414,9 +1437,10 @@ async function deckView($, e, next) {
 
   // terminal
   const maxRows = Math.max(2, (e.props.maxRows ?? 14) - 1 - (lane.length ? PET_ROWS : 0))
-  const labelW = Math.min(24, Math.max(12, Math.floor(cols * 0.2)))
-  const rightW = 12
-  const barW = Math.max(16, cols - labelW - rightW - 8)
+  // glyph, label, bar, right column and ✕ fit in cols: narrow panes shrink the label and bar
+  const labelW = Math.min(24, Math.max(cols < 60 ? 6 : 12, Math.floor(cols * 0.2)))
+  const rightW = cols < 50 ? 10 : 12
+  const barW = Math.max(4, cols - labelW - rightW - 8)
   const lines = []
   for (const row of rows.slice(0, (inPane ? rows.length : foldCount(rows.length, nowMs)))) {
     if (lines.length >= maxRows) break
@@ -1427,11 +1451,13 @@ async function deckView($, e, next) {
         Box({
           flexDirection: 'row',
           columnGap: 1,
+          height: 1,
+          overflow: 'hidden',
           children: [
             Text({ color: STYLE.run.fill, children: ['⇄'] }),
             Box({ width: labelW, flexShrink: 0, children: [Text({ color: TEXT, children: [row.title] })] }),
             Box({ flexGrow: 1, flexDirection: 'row', children: runs(Text, cells.slice(0, barW)) }),
-            Box({ width: rightW, flexShrink: 0, justifyContent: 'flex-end', children: [Text({ color: dirColor, children: [row.right] })] }),
+            Box({ width: rightW, flexShrink: 0, justifyContent: 'flex-end', children: [Text({ color: dirColor, wrap: 'truncate', children: [row.right] })] }),
             close(row),
           ],
         }),
@@ -1442,11 +1468,13 @@ async function deckView($, e, next) {
       Box({
         flexDirection: 'row',
         columnGap: 1,
+        height: 1,
+        overflow: 'hidden',
         children: [
           Text({ color: st.fill, children: [st.glyph] }),
           Box({ width: labelW, flexShrink: 0, children: [Text({ color: TEXT, wrap: 'truncate', children: [trunc(row.title, labelW)] })] }),
-          Box({ flexGrow: 1, flexDirection: 'row', children: runs(Text, terminalBar(prefs.style.terminal, row, barW, frame)) }),
-          Box({ width: rightW, flexShrink: 0, justifyContent: 'flex-end', children: [Text({ color: MUTED, children: [row.right] })] }),
+          Box({ flexGrow: 1, flexDirection: 'row', overflow: 'hidden', children: runs(Text, terminalBar(prefs.style.terminal, row, barW, frame)) }),
+          Box({ width: rightW, flexShrink: 0, justifyContent: 'flex-end', children: [Text({ color: MUTED, wrap: 'truncate', children: [row.right] })] }),
           close(row),
         ],
       }),
@@ -1458,6 +1486,8 @@ async function deckView($, e, next) {
         Box({
           flexDirection: 'row',
           columnGap: 1,
+          height: 1,
+          overflow: 'hidden',
           children: [
             Text({ children: [ag.depth ? '    ' : '  '] }),
             Text({ color: ast.fill, children: [ag.state === 'running' && frame % 6 < 3 ? '○' : '●'] }),
@@ -1680,6 +1710,7 @@ export function register(on) {
 
   on('turn.start', async ($, e, next) => {
     if (!String(e.text ?? '').startsWith('/')) {
+      adoptRunningAgents()
       for (const a of [...agents.values()]) if (a.home === 'activity') agents.delete(a.id)
       activity = { title: lastPrompt || 'Working', start: Date.now(), tools: 0, action: 'Thinking', done: false, doneAt: 0, agentsDoneAt: null }
     }
