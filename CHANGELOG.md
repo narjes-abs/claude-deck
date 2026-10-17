@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.12
+
+- The expanded header shows the folder the session works in, with your home folder as `~` (for example `~/Documents/deck`). It follows `/cd` and worktree moves, a long path is cut from the left, and a narrow header drops the weather and clock before the folder. `/deck folder off` hides it. From [#5](https://github.com/nvr0x5/claude-deck/pull/5), thanks @narjes-abs.
+
 ## 0.4.11
 
 - Background subagents stay on Deck while they run. The activity row no longer hides them 20 seconds after the turn ends, and on your next prompt they move to the Agents bar instead of disappearing, so you still see them finish. Fixes [#3](https://github.com/nvr0x5/claude-deck/issues/3), thanks @damiansycz.
